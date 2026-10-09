@@ -3,9 +3,11 @@ from pathlib import Path
 import discord
 from discord.ext import commands
 from discord.ui import View, Button
-import getpass, re
+import getpass, re, os, sys
 
-TOKEN=getpass.getpass("Discord BOT token (niewidoczny): ").strip()
+TOKEN = os.getenv("DISCORD_TOKEN", "").strip()
+if not TOKEN and sys.stdin.isatty():
+    TOKEN = getpass.getpass("Discord BOT token (niewidoczny): ").strip()
 if not TOKEN: raise SystemExit("Brak tokena.")
 
 intents=discord.Intents.default()
@@ -433,6 +435,21 @@ async def rank_command(ctx):
         colour=discord.Colour(0x9B59B6)
     ))
 
+@bot.tree.command(name="rank", description="Pokaż swój poziom, XP i punkty ASAXES")
+async def slash_rank(interaction: discord.Interaction):
+    if interaction.guild is None:
+        await interaction.response.send_message("❌ Ta komenda działa tylko na serwerze.", ephemeral=True)
+        return
+    if interaction.channel is None or interaction.channel.name != "🏆・ranking":
+        await interaction.response.send_message("📍 Użyj tej komendy na kanale **#🏆・ranking**.", ephemeral=True)
+        return
+    await interaction.response.send_message(embed=discord.Embed(
+        title="🏆 TWÓJ RANKING",
+        description=format_rank(interaction.user),
+        colour=discord.Colour(0x9B59B6)
+    ))
+
+
 @bot.command(name="punkty")
 @only_channel("💰・punkty")
 async def points_command(ctx):
@@ -654,6 +671,13 @@ async def ensure_onboarding_messages(guild):
                 colour=discord.Colour(0x2ECC71)
             )
             await acceptance.send(embed=embed, view=VerifyView())
+
+@bot.event
+async def setup_hook():
+    # Synchronizacja komend slash po uruchomieniu, przed połączeniem z gateway.
+    synced = await bot.tree.sync()
+    print(f"Zsynchronizowano {len(synced)} komend slash.", flush=True)
+
 
 @bot.event
 async def on_ready():
